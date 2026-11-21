@@ -1,0 +1,415 @@
+{
+  "name": "Sistema de automatización de videos cortos - Facebook y Youtube",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "const https = require('https');\nconst fs = require('fs');\n\nconst jobId = $('Code in JavaScript2').item.json.jobId;\nconst videoPath = $('Code in JavaScript2').item.json.videoPath;\nconst pageId = 'TU_FACEBOOK_PAGE_ID';\nconst accessToken = 'TU_FACEBOOK_PAGE_ACCESS_TOKEN';\nconst titulo = $('Code in JavaScript').item.json.titulo;\nconst descripcion = $('Code in JavaScript').item.json.descripcion;\nconst hashtags = $('Code in JavaScript').item.json.hashtags;\n\nconst videoData = fs.readFileSync(videoPath);\nconst boundary = 'boundary' + Date.now();\n\nconst description = titulo + '\\n\\n' + descripcion + '\\n\\n' + hashtags;\n\nconst result = await new Promise((resolve, reject) => {\n  const options = {\n    hostname: 'graph-video.facebook.com',\n    path: '/v19.0/' + pageId + '/videos',\n    method: 'POST',\n    headers: {\n      'Content-Type': 'multipart/form-data; boundary=' + boundary\n    }\n  };\n\n  const req = https.request(options, (res) => {\n    let data = '';\n    res.on('data', chunk => data += chunk);\n    res.on('end', () => {\n      try { resolve(JSON.parse(data)); }\n      catch(e) { resolve({ raw: data }); }\n    });\n  });\n\n  req.on('error', reject);\n\n  const header = '--' + boundary + '\\r\\n' +\n    'Content-Disposition: form-data; name=\"access_token\"\\r\\n\\r\\n' + accessToken + '\\r\\n' +\n    '--' + boundary + '\\r\\n' +\n    'Content-Disposition: form-data; name=\"description\"\\r\\n\\r\\n' + description + '\\r\\n' +\n    '--' + boundary + '\\r\\n' +\n    'Content-Disposition: form-data; name=\"file\"; filename=\"' + jobId + '.mp4\"\\r\\n' +\n    'Content-Type: video/mp4\\r\\n\\r\\n';\n\n  const footer = '\\r\\n--' + boundary + '--';\n\n  req.write(header);\n  req.write(videoData);\n  req.write(footer);\n  req.end();\n});\n\nreturn [{ json: result }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1744,
+        128
+      ],
+      "id": "b60370a7-4669-4a64-b8c0-8c94a66e1045",
+      "name": "Code in JavaScript5"
+    },
+    {
+      "parameters": {
+        "fileSelector": "={{ $('Code in JavaScript2').item.json.videoPath }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        1440,
+        256
+      ],
+      "id": "5c79efc0-b7f6-43d2-979b-52db6caae081",
+      "name": "Read/Write Files from Disk"
+    },
+    {
+      "parameters": {
+        "resource": "video",
+        "operation": "upload",
+        "title": "={{ $('Code in JavaScript').item.json.titulo }} #Shorts",
+        "regionCode": "CO",
+        "categoryId": "28",
+        "options": {
+          "description": "={{ $('Code in JavaScript').item.json.descripcion }}  {{ $('Code in JavaScript').item.json.hashtags }}",
+          "privacyStatus": "public"
+        }
+      },
+      "type": "n8n-nodes-base.youTube",
+      "typeVersion": 1,
+      "position": [
+        1568,
+        128
+      ],
+      "id": "96bff5eb-829a-4ccf-85bc-bf292f550399",
+      "name": "Upload a video",
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "ZoBPB495pQzsKiiL",
+          "name": "YouTube account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const https = require('https');\nconst http = require('http');\nconst fs = require('fs');\nconst path = require('path');\n\nconst localPath = $json.localPath;\nconst url = $json.url;\n\nconst dir = path.dirname(localPath);\nif (!fs.existsSync(dir)) {\n  fs.mkdirSync(dir, { recursive: true });\n}\n\nawait new Promise((resolve, reject) => {\n  const file = fs.createWriteStream(localPath);\n  const protocol = url.startsWith('https') ? https : http;\n  protocol.get(url, (response) => {\n    response.pipe(file);\n    file.on('finish', () => {\n      file.close(resolve);\n    });\n  }).on('error', (err) => {\n    fs.unlink(localPath, () => {});\n    reject(err);\n  });\n});\n\nreturn {\n  json: {\n    localPath,\n    imagenGuardada: true\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1216,
+        128
+      ],
+      "id": "cb6f230b-a597-4349-ab36-33b599e63127",
+      "name": "Code in JavaScript4",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const https = require('https');\nconst http = require('http');\nconst fs = require('fs');\n\nconst audioPath = $('Code in JavaScript').item.json.audioPath;\nconst binary = $input.first().binary;\nconst binaryKey = Object.keys(binary)[0];\nconst binaryData = binary[binaryKey];\n\n// Crear directorio si no existe\nconst dir = audioPath.substring(0, audioPath.lastIndexOf('\\\\'));\nif (!fs.existsSync(dir)) {\n  fs.mkdirSync(dir, { recursive: true });\n}\n\n// Guardar desde base64\nconst buffer = Buffer.from(binaryData.data, 'base64');\nfs.writeFileSync(audioPath, buffer);\n\nreturn [{\n  json: {\n    ...$('Code in JavaScript').item.json,\n    audioGuardado: true,\n    audioSize: buffer.length\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        736,
+        0
+      ],
+      "id": "c25e767a-bf22-4a59-b402-4d767d9d9b3e",
+      "name": "Code in JavaScript3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const { exec } = require('child_process');\nconst https = require('https');\nconst http = require('http');\nconst fs = require('fs');\n\nconst jobId = $('Code in JavaScript').item.json.jobId;\nconst photos = $('Code in JavaScript1').all();\nconst guionTexto = $('Code in JavaScript').item.json.guionTexto;\n\nconst downloadFile = (url, dest) => new Promise((resolve, reject) => {\n  const file = fs.createWriteStream(dest);\n  const protocol = url.startsWith('https') ? https : http;\n  protocol.get(url, (response) => {\n    if (response.statusCode === 301 || response.statusCode === 302) {\n      file.close();\n      return downloadFile(response.headers.location, dest).then(resolve).catch(reject);\n    }\n    response.pipe(file);\n    file.on('finish', () => file.close(resolve));\n  }).on('error', (err) => {\n    fs.unlink(dest, () => {});\n    reject(err);\n  });\n});\n\nconst downloadAudio = (text, dest, apiKey) => new Promise((resolve, reject) => {\n  const body = JSON.stringify({ model: 'tts-1', input: text, voice: 'nova', response_format: 'mp3' });\n  const options = {\n    hostname: 'api.openai.com',\n    path: '/v1/audio/speech',\n    method: 'POST',\n    headers: {\n      'Authorization': 'Bearer ' + apiKey,\n      'Content-Type': 'application/json',\n      'Content-Length': Buffer.byteLength(body)\n    }\n  };\n  const file = fs.createWriteStream(dest);\n  const req = https.request(options, (response) => {\n    response.pipe(file);\n    file.on('finish', () => file.close(resolve));\n  });\n  req.on('error', reject);\n  req.write(body);\n  req.end();\n});\n\nconst imageDir = 'C:\\\\Users\\\\Public\\\\n8n-videos\\\\images';\nconst audioDir = 'C:\\\\Users\\\\Public\\\\n8n-videos\\\\audio';\nconst outputDir = 'C:\\\\Users\\\\Hewlett-Packard\\\\.n8n-files';\n\nif (!fs.existsSync(imageDir)) fs.mkdirSync(imageDir, { recursive: true });\nif (!fs.existsSync(audioDir)) fs.mkdirSync(audioDir, { recursive: true });\nif (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });\n\nconst outputPath = outputDir + '\\\\' + jobId + '.mp4';\n\nconst imagePaths = [];\nfor (let i = 0; i < Math.min(photos.length, 6); i++) {\n  const url = photos[i].json.url;\n  const dest = imageDir + '\\\\' + jobId + '_' + i + '.jpg';\n  await downloadFile(url, dest);\n  imagePaths.push(dest);\n}\n\nconst audioPath = audioDir + '\\\\' + jobId + '.mp3';\nawait downloadAudio(guionTexto, audioPath, 'TU_OPENAI_API_KEY');\n\nconst inputs = imagePaths.map(p => '-loop 1 -t 3 -i \"' + p + '\"').join(' ');\nconst filters = imagePaths.map((_, i) => '[' + i + ':v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1[v' + i + ']').join(';');\nconst concat = imagePaths.map((_, i) => '[v' + i + ']').join('') + 'concat=n=' + imagePaths.length + ':v=1:a=0[vout]';\nconst command = 'ffmpeg -y ' + inputs + ' -i \"' + audioPath + '\" -filter_complex \"' + filters + ';' + concat + '\" -map \"[vout]\" -map ' + imagePaths.length + ':a -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 128k -pix_fmt yuv420p -shortest \"' + outputPath + '\"';\n\nawait new Promise((resolve, reject) => {\n  exec(command, { maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {\n    if (error) reject(new Error('ERR: ' + error.message + '\\nSTDERR: ' + stderr));\n    else resolve(stdout);\n  });\n});\n\nreturn [{\n  json: {\n    success: true,\n    videoPath: outputPath,\n    jobId\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1376,
+        32
+      ],
+      "id": "e47469ff-da23-4512-879c-0744ce00cc3a",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1056,
+        144
+      ],
+      "id": "b57d67ff-9022-472f-b12d-630814b559f9",
+      "name": "HTTP Request2",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const photos = $input.first().json.photos;\nconst jobId = $('Code in JavaScript').item.json.jobId;\n\nconst selectedPhotos = photos.slice(0, 6);\n\nreturn selectedPhotos.map((photo, index) => ({\n  json: {\n    url: photo.src.original,\n    localPath: `C:\\\\Users\\\\Public\\\\n8n-videos\\\\images\\\\${jobId}_${index}.jpg`,\n    index,\n    jobId\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1008,
+        -16
+      ],
+      "id": "f9935786-97b0-4645-ab8e-ec79e40e7025",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "url": "https://api.pexels.com/v1/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $('Code in JavaScript').item.json.tema }}"
+            },
+            {
+              "name": "per_page",
+              "value": "8"
+            },
+            {
+              "name": "orientation",
+              "value": "portrait"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        864,
+        144
+      ],
+      "id": "802b51a5-a576-4d6f-98e1-eb89f405236b",
+      "name": "HTTP Request1",
+      "executeOnce": false,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "vPdd76wYPU458cJL",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/audio/speech",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"tts-1\",\n  \"input\": \"{{ $json.guionTexto }}\",\n  \"voice\": \"nova\",\n  \"response_format\": \"mp3\"\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        544,
+        64
+      ],
+      "id": "ccfb725a-0780-4dbf-ad89-cac7cee77b5f",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "plFWtejO28GlmGMU",
+          "name": "Header Auth account"
+        },
+        "openAiApi": {
+          "id": "5tTcCA4hxMPS9rQP",
+          "name": "OpenAi account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\n\nconst rawText = response.output[0].content[0].text;\n\nlet data;\ntry {\n  data = JSON.parse(rawText);\n} catch(e) {\n  const cleaned = rawText.replace(/```json|```/g, '').trim();\n  data = JSON.parse(cleaned);\n}\n\nconst timestamp = Date.now();\nconst jobId = `video_${timestamp}`;\nconst guionTexto = data.guion.join('. ');\n\nreturn [{\n  json: {\n    jobId,\n    titulo: data.titulo,\n    tema: data.tema,\n    guion: data.guion,\n    guionTexto,\n    descripcion: data.descripcion,\n    hashtags: data.hashtags,\n    audioPath: `C:\\\\Users\\\\Public\\\\n8n-videos\\\\audio\\\\${jobId}.mp3`,\n    videoPath: `C:\\\\Users\\\\Public\\\\n8n-videos\\\\output\\\\${jobId}.mp4`\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        -128
+      ],
+      "id": "872e6046-50f0-4d7b-a473-d37845fba867",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "Genera un video corto viral sobre un dato curioso ÚNICO e INESPERADO de ciencia, historia, psicología, naturaleza o tecnología.\n\nREGLAS ESTRICTAS:\n- El tema debe ser poco conocido y sorprendente\n- NUNCA repitas temas como sueños, pulpos, o datos muy comunes\n- Usa datos con números específicos cuando sea posible\n- El guión debe generar curiosidad desde la primera línea\n- Cada vez que respondas, elige una categoría DIFERENTE rotando entre: ciencia, historia, naturaleza, psicología, tecnología, astronomía, biología, economía\n\nEl guión debe tener MÁXIMO 8 líneas, cada línea con MÁXIMO 6 palabras.\nResponde SOLO con este JSON exacto sin texto adicional ni backticks:\n\n{\n  \"titulo\": \"título llamativo y específico del video\",\n  \"tema\": \"una palabra en inglés para buscar imagen (ej: space, ocean, brain, volcano, robot)\",\n  \"categoria\": \"la categoría elegida esta vez\",\n  \"guion\": [\n    \"línea 1 máximo 6 palabras\",\n    \"línea 2 máximo 6 palabras\",\n    \"línea 3 máximo 6 palabras\",\n    \"línea 4 máximo 6 palabras\",\n    \"línea 5 máximo 6 palabras\",\n    \"línea 6 máximo 6 palabras\",\n    \"línea 7 máximo 6 palabras\",\n    \"línea 8 máximo 6 palabras\"\n  ],\n  \"descripcion\": \"descripción de 2 oraciones para YouTube con el dato específico\",\n  \"hashtags\": \"#dato #viral #ciencia #shorts #curiosidades #aprendeentiktok\"\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "ed3ab469-eccd-4f73-8e47-88e31e163e49",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "uJm6XHo2DEHGQ9SR",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        208,
+        176
+      ],
+      "id": "5faea3b6-397f-4ec1-b8df-e2c5c5e4361a",
+      "name": "Schedule Trigger"
+    }
+  ],
+  "connections": {
+    "Read/Write Files from Disk": {
+      "main": [
+        [
+          {
+            "node": "Upload a video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload a video": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript4": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript3": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  }
+}
