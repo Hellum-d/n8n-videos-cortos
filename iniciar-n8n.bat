@@ -1,0 +1,1 @@
+set N8N_ALLOW_EXEC=true && set NODE_FUNCTION_ALLOW_BUILTIN=fs,path,child_process,https,http && n8n start

@@ -35,11 +35,20 @@ Schedule Trigger
   - **YouTube** (credencial OAuth2 en n8n)
   - **Facebook**: página y *Page Access Token* con permiso para publicar videos
 
-Para que los nodos Code puedan usar módulos de Node.js, n8n debe iniciarse con:
+Para que los nodos Code puedan usar módulos de Node.js y ejecutar FFmpeg, n8n debe iniciarse con estas variables de entorno:
 
-```bash
-NODE_FUNCTION_ALLOW_BUILTIN=fs,https,http,path,child_process
 ```
+N8N_ALLOW_EXEC=true
+NODE_FUNCTION_ALLOW_BUILTIN=fs,path,child_process,https,http
+```
+
+En Windows basta con ejecutar **`iniciar-n8n.bat`** (incluido en este repositorio), que define las variables y arranca n8n:
+
+```bat
+set N8N_ALLOW_EXEC=true && set NODE_FUNCTION_ALLOW_BUILTIN=fs,path,child_process,https,http && n8n start
+```
+
+Después abre `http://localhost:5678`.
 
 ## Instalación
 
